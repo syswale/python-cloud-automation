@@ -4,29 +4,16 @@ from datetime import datetime, timezone
 
 
 def lambda_handler(event, context):
-    """
-    AWS Lambda entry point.
-
-    Lambda calls this function automatically when triggered.
-    'event'   — data passed in by the trigger (e.g. scheduled cron, SNS message).
-                We don't need it for this script, but it must be in the signature.
-    'context' — runtime info like how much memory/time is left.
-                Also not needed here, but Lambda always passes it in.
-
-    Everything printed here shows up in CloudWatch Logs automatically.
-    No input() prompts — Lambda runs unattended in the cloud, nobody is at the keyboard.
-    """
-
+    
     print("=" * 55)
     print("EBS Sniper initialized via AWS Lambda...")
     print(f"Execution time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print("=" * 55)
 
-    # Lambda automatically inherits the permissions of whatever
-    # IAM Role is attached to this function — no credentials needed in code.
+    
     ec2_client = boto3.client('ec2', region_name='us-east-1')
 
-    # ── 1. FIND ALL UNATTACHED VOLUMES ──────────────────────────────
+    # 1. FIND ALL UNATTACHED VOLUMES 
     # 'available' means the volume exists but is not attached to any instance.
     # These are the ones silently billing the company every month.
     response = ec2_client.describe_volumes(
@@ -53,10 +40,8 @@ def lambda_handler(event, context):
 
     print(f"Found {len(volumes)} unattached volume(s). Engaging...\n")
 
-    # ── 2. LOOP AND DELETE — NO CONFIRMATION PROMPT ─────────────────
+    #  2. LOOP AND DELETE
     # This is the key difference from ebs_sniper.py.
-    # Lambda is a lights-out, automated process. There is no human in the loop.
-    # The IAM Role's permissions are the safety mechanism, not a y/n prompt.
     deleted = []
     failed  = []
 
@@ -68,22 +53,16 @@ def lambda_handler(event, context):
         try:
             ec2_client.delete_volume(VolumeId=volume_id)
 
-            # ── 3. LOG EVERY DELETION TO CLOUDWATCH ─────────────────
+            # 3. LOG EVERY DELETION TO CLOUDWATCH 
             # print() in Lambda = a CloudWatch log line.
-            # These lines become your audit trail — finance and security teams
-            # can query CloudWatch to see exactly what was deleted and when.
             print(f"  ✓ Target neutralized: {volume_id} | {size_gb} GB | Created: {created} | Est savings: ~${size_gb * 0.08:.2f}/mo")
             deleted.append(volume_id)
 
         except Exception as e:
-            # Common reasons this fails:
-            #   - Volume was attached to an instance between scan and delete
-            #   - IAM Role missing ec2:DeleteVolume permission
-            #   - Volume is in a non-deletable state (e.g. 'deleting' already)
             print(f"  ✗ Failed to delete {volume_id}: {str(e)}")
             failed.append({'volume_id': volume_id, 'error': str(e)})
 
-    # ── FINAL SUMMARY ────────────────────────────────────────────────
+    # FINAL SUMMARY 
     # This block prints a clean debrief to CloudWatch.
     # It also becomes the return value — visible in Lambda test results
     # and passable to downstream services like SNS (email alerts) or Slack.
