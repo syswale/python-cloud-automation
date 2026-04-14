@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 def get_unattached_volumes(ec2_client):
-    """Scan AWS and return a list of unattached EBS volumes."""
+    """Scans AWS and return a list of unattached EBS volumes."""
 
     response = ec2_client.describe_volumes(
         Filters=[
@@ -53,12 +53,9 @@ def print_dashboard(volumes):
 def delete_volumes(ec2_client, volumes):
     """
     Ask for confirmation, then delete every volume in the list.
-    This is the Phase 2 upgrade — the actual kill switch.
     """
 
-    # --- Pause and ask the human for a decision ---
-    # input() freezes the script and waits for keyboard input.
-    # .strip() removes accidental spaces. .lower() accepts "Y" or "y".
+   
     confirm = input("\n  ⚠  Do you want to delete these volumes? (y/n): ").strip().lower()
 
     if confirm != 'y':
@@ -75,8 +72,6 @@ def delete_volumes(ec2_client, volumes):
         volume_id = vol['VolumeId']
 
         try:
-            # The actual AWS API call that deletes the volume permanently.
-            # There is no recycle bin — this is irreversible.
             ec2_client.delete_volume(VolumeId=volume_id)
 
             print(f"  ✓ Target neutralized: {volume_id} deleted.")
@@ -88,7 +83,7 @@ def delete_volumes(ec2_client, volumes):
             print(f"  ✗ Failed to delete {volume_id}: {e}")
             failed_count += 1
 
-    # --- Final debrief ---
+    # Final
     print("\n" + "=" * 55)
     print(f"  Mission complete.")
     print(f"  Deleted : {deleted_count} volume(s)")
@@ -112,10 +107,10 @@ def run():
 
     print(f"  [!] Found {len(volumes)} unattached volume(s).")
 
-    # Phase 1: show what we found
+    # 1: show what we found
     print_dashboard(volumes)
 
-    # Phase 2: offer to destroy them
+    # 2: offer to destroy them
     delete_volumes(ec2_client, volumes)
 
 
